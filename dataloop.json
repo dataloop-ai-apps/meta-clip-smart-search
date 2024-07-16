@@ -1,0 +1,159 @@
+{
+  "name": "meta-clip-image-search",
+  "displayName": "Meta Clip Image Search",
+  "description": "Meta CLIP Image search using NLP",
+  "version": "0.1.5",
+  "scope": "project",
+  "attributes": {
+    "Category": "Element",
+    "Provider": "Meta",
+    "Element Type": "Model"
+  },
+    "codebase": {
+    "type": "git",
+    "gitUrl": "https://github.com/dataloop-ai-apps/meta-clip-smart-search",
+    "gitTag": "0.1.5"
+  },
+  "components": {
+    "panels": [
+      {
+        "name": "meta-clip-smart-search",
+        "supportedSlots": [
+          {
+            "type": "datasetBrowserSearch",
+            "configuration": {
+              "layout": {
+                "schema": {
+                  "fields": [
+                    {
+                      "name": "Text Box",
+                      "title": "",
+                      "props": {
+                        "title": false,
+                        "type": "string",
+                        "placeholder": "Natural language based search"
+                      },
+                      "widget": "dl-input"
+                    }
+                  ]
+                }
+              },
+              "invoke": {
+                "type": "script",
+                "namespace": "run",
+                "source": "https://raw.githubusercontent.com/dataloop-ai-apps/meta-test/main/run.js"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "toolbars": [
+      {
+        "displayName": "NLP (Meta CLIP)",
+        "icon": "icon-dl-models-management",
+        "location": "datasetBrowserSearchOption",
+        "invoke": {
+          "type": "panel",
+          "namespace": "meta-clip-smart-search"
+        }
+      },
+      {
+        "displayName": "Meta Clip Extract Features",
+        "invoke": {
+          "type": "function",
+          "namespace": "meta-clip-extraction.meta_clip_extract_features.extract_dataset"
+        },
+        "location": "datasetBrowserApps",
+        "icon": "icon-dl-edit"
+      }
+    ],
+    "modules": [
+      {
+        "name": "meta_clip_extract_features",
+        "entryPoint": "modules/extract_features_metaclip.py",
+        "className": "MetaClipExtractor",
+        "functions": [
+          {
+            "name": "extract_item",
+            "description": "Extract CLIP features on a single item",
+            "input": [
+              {
+                "type": "Item",
+                "name": "item"
+              }
+            ],
+            "output": [
+              {
+                "type": "Item",
+                "name": "item"
+              }
+            ],
+            "displayName": "Clip Features"
+          },
+          {
+            "name": "extract_dataset",
+            "description": "Extract CLIP features on a single item",
+            "input": [
+              {
+                "type": "Dataset",
+                "name": "dataset"
+              },
+              {
+                "type": "Json",
+                "name": "query"
+              }
+            ],
+            "output": [
+              {
+                "type": "Dataset",
+                "name": "dataset"
+              }
+            ],
+            "displayName": "Clip Dataset Features"
+          }
+        ]
+      }
+    ],
+    "services": [
+      {
+        "name": "meta-clip-extraction",
+        "moduleName": "meta_clip_extract_features",
+        "packageRevision": "latest",
+        "runtime": {
+          "podType": "regular-m",
+          "concurrency": 10,
+          "runnerImage": "gcr.io/viewo-g/piper/agent/runner/cpu/clip-search:0.1.0",
+          "autoscaler": {
+            "type": "rabbitmq",
+            "minReplicas": 0,
+            "maxReplicas": 2,
+            "queueLength": 100
+          }
+        },
+        "executionTimeout": 360000
+      }
+    ],
+    "triggers": [
+      {
+        "name": "extract-meta-clip-on-item",
+        "active": true,
+        "type": "Event",
+        "namespace": "services.meta-clip-extraction",
+        "spec": {
+          "filter": {},
+          "executionMode": "Always",
+          "resource": "Item",
+          "actions": [
+            "Created"
+          ],
+          "input": {},
+          "operation": {
+            "type": "function",
+            "functionName": "extract_item"
+          }
+        }
+      }
+    ]
+  }
+}

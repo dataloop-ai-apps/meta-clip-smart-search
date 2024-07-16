@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>ONNX Runtime Web Example</title>
+  </head>
+  <body>
+    <script type="module">
+      async function retrieveLfsFileFromGithub() {
+        try {
+          let owner = "dataloop-ai-apps";
+          let repo = "meta-test";
+          let branch = "main";
+          let filePath = "weights/metaclip_text_encoder.onnx";
+          // Step 1: Get the file metadata
+          const metadataUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}?ref=${branch}`;
+          const metadataResponse = await fetch(metadataUrl, {
+            headers: { Accept: "application/vnd.github.v3+json" },
+          });
+          const metadata = await metadataResponse.json();
+
+          if (metadata.encoding !== "base64") {
+            // This is an LFS file
+            const sha = metadata.sha;
+
+            // Step 2: Get the LFS file pointer
+            const blobUrl = `https://api.github.com/repos/${owner}/${repo}/git/blobs/${sha}`;
+            const blobResponse = await fetch(blobUrl, {
+              headers: { Accept: "application/vnd.github.v3+json" },
+            });
+            const blobData = await blobResponse.json();
+
+            // Step 3: Parse the LFS pointer
+            const pointerContent = atob(blobData.content);
+            const oidMatch = pointerContent.match(/oid sha256:(\S+)/);
+            const sizeMatch = pointerContent.match(/size (\d+)/);
+
+            if (!oidMatch || !sizeMatch) {
+              throw new Error("Invalid LFS pointer format");
+            }
+
+            const oid = oidMatch[1];
+            const size = parseInt(sizeMatch[1], 10);
+
+            // Step 4: Construct the LFS download URL
+            const lfsDownloadUrl = `https://github.com/${owner}/${repo}.git/info/lfs/objects/${oid}`;
+
+            // Step 5: Download the LFS file
+            const fileResponse = await fetch(lfsDownloadUrl, {
+              headers: { Accept: "application/vnd.git-lfs" },
+            });
+            const fileContent = await fileResponse.arrayBuffer();
+
+            // Step 6: Create a downloadable blob
+            const blob = new Blob([fileContent]);
+            const downloadUrl = URL.createObjectURL(blob);
+
+            // Step 7: Trigger download
+            const a = document.createElement("a");
+            a.href = downloadUrl;
+            a.download = filePath.split("/").pop();
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(downloadUrl);
+
+            console.log(`File '${a.download}' download has been initiated.`);
+          } else {
+            console.log(
+              "This is not an LFS file. It can be downloaded directly from GitHub."
+            );
+          }
+        } catch (error) {
+          console.error("Error retrieving LFS file:", error.message);
+        }
+      }
+      retrieveLfsFileFromGithub();
+    </script>
+  </body>
+</html>
